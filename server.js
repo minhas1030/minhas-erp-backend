@@ -36,7 +36,7 @@ app.use(express.json());
 
 /* ---------------- helpers ---------------- */
 function sign(user){
-  return jwt.sign({ id: user.id, schoolId: user.schoolId, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: '30d' });
+  return jwt.sign({ id: user.id, schoolId: user.schoolId, role: user.role, name: user.name, linkedStudentId: user.linkedStudentId || null }, JWT_SECRET, { expiresIn: '30d' });
 }
 function auth(req, res, next){
   const header = req.headers.authorization || '';
@@ -68,7 +68,16 @@ function mapSchool(row){
 
 // Register a brand-new school + its first Admin account
 app.post('/api/auth/signup', async (req, res) => {
-  const { schoolName, adminName, username, password } = req.body || {};
+  const { schoolName, adminName, username, password, ownerKey } = req.body || {};
+  // Owner-only gate: if OWNER_SIGNUP_KEY is set in the environment, every signup
+  // must include the matching key. This means only YOU (who knows the key) can
+  // create new school accounts — no one else can self-register, even if they
+  // have this file and your backend URL.
+  if(process.env.OWNER_SIGNUP_KEY){
+    if(!ownerKey || ownerKey !== process.env.OWNER_SIGNUP_KEY){
+      return res.status(403).json({ error: 'Invalid or missing owner key — only the software owner can create new school accounts.' });
+    }
+  }
   if(!schoolName || !adminName || !username || !password){
     return res.status(400).json({ error: 'schoolName, adminName, username and password are all required' });
   }
@@ -105,14 +114,14 @@ app.post('/api/auth/signup', async (req, res) => {
 
 // Admin creates additional staff/parent/teacher logins for their own school
 app.post('/api/auth/create-user', auth, requireRole('Admin'), async (req, res) => {
-  const { name, username, password, role } = req.body || {};
+  const { name, username, password, role, linkedStudentId } = req.body || {};
   if(!name || !username || !password || !role) return res.status(400).json({ error: 'name, username, password, role required' });
   try{
     const existing = await pool.query('SELECT id FROM users WHERE username=$1', [username]);
     if(existing.rows.length) return res.status(409).json({ error: 'Username already taken' });
     const result = await pool.query(
-      `INSERT INTO users (school_id, name, username, password_hash, role) VALUES ($1,$2,$3,$4,$5) RETURNING id, name, role`,
-      [req.user.schoolId, name, username, bcrypt.hashSync(password, 10), role]
+      `INSERT INTO users (school_id, name, username, password_hash, role, linked_student_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, name, role`,
+      [req.user.schoolId, name, username, bcrypt.hashSync(password, 10), role, linkedStudentId || null]
     );
     res.json(result.rows[0]);
   }catch(e){
@@ -129,10 +138,10 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
     const schoolResult = await pool.query('SELECT * FROM schools WHERE id=$1', [user.school_id]);
-    const token = sign({ id: user.id, schoolId: user.school_id, role: user.role, name: user.name });
+    const token = sign({ id: user.id, schoolId: user.school_id, role: user.role, name: user.name, linkedStudentId: user.linked_student_id });
     res.json({
       token,
-      user: { id: user.id, name: user.name, role: user.role, schoolId: user.school_id },
+      user: { id: user.id, name: user.name, role: user.role, schoolId: user.school_id, linkedStudentId: user.linked_student_id },
       school: mapSchool(schoolResult.rows[0])
     });
   }catch(e){
@@ -175,6 +184,8 @@ app.put('/api/school', auth, requireRole('Admin'), async (req, res) => {
 /* ================= GENERIC CRUD (scoped to caller's school, stored as JSON rows) ================= */
 function crud(collectionName, allowedRoles = { write: null }){
   const router = express.Router();
+  const readFilter = allowedRoles.readFilter || null;
+  const transform = allowedRoles.transform || null;
 
   router.get('/', auth, async (req, res) => {
     try{
@@ -182,7 +193,10 @@ function crud(collectionName, allowedRoles = { write: null }){
         'SELECT id, data FROM records WHERE school_id=$1 AND collection=$2 ORDER BY created_at ASC',
         [req.user.schoolId, collectionName]
       );
-      res.json(result.rows.map(r => ({ id: r.id, ...r.data })));
+      let rows = result.rows.map(r => ({ id: r.id, ...r.data }));
+      if(readFilter) rows = rows.filter(row => readFilter(row, req.user));
+      if(transform) rows = rows.map(row => transform(row, req.user));
+      res.json(rows);
     }catch(e){ res.status(500).json({ error: e.message }); }
   });
 
@@ -220,11 +234,26 @@ function crud(collectionName, allowedRoles = { write: null }){
   return router;
 }
 
-app.use('/api/students', crud('students', { write: ['Admin','Teacher'] }));
+app.use('/api/students', crud('students', {
+  write: ['Admin','Teacher'],
+  readFilter: (row, user) => user.role !== 'Parent' || String(row.id) === String(user.linkedStudentId)
+}));
 app.use('/api/staff', crud('staff', { write: ['Admin','Accountant'] }));
-app.use('/api/fees', crud('fees', { write: ['Admin','Accountant'] }));
+app.use('/api/fees', crud('fees', {
+  write: ['Admin','Accountant'],
+  readFilter: (row, user) => user.role !== 'Parent' || String(row.studentId) === String(user.linkedStudentId)
+}));
 app.use('/api/expenses', crud('expenses', { write: ['Admin','Accountant'] }));
-app.use('/api/attendance', crud('attendance', { write: ['Admin','Teacher'] }));
+app.use('/api/attendance', crud('attendance', {
+  write: ['Admin','Teacher'],
+  transform: (row, user) => {
+    if(user.role === 'Parent' && row.records && typeof row.records === 'object'){
+      const own = user.linkedStudentId ? row.records[user.linkedStudentId] : undefined;
+      return { ...row, records: own !== undefined ? { [user.linkedStudentId]: own } : {} };
+    }
+    return row;
+  }
+}));
 app.use('/api/homework', crud('homework', { write: ['Admin','Teacher'] }));
 app.use('/api/notices', crud('notices', { write: ['Admin','Teacher'] }));
 app.use('/api/events', crud('events', { write: ['Admin','Teacher'] }));
@@ -233,6 +262,8 @@ app.use('/api/admissions', crud('admissions', { write: ['Admin'] }));
 app.use('/api/library', crud('library', { write: ['Admin','Teacher'] }));
 app.use('/api/transport', crud('transport', { write: ['Admin'] }));
 app.use('/api/exams', crud('exams', { write: ['Admin','Teacher'] }));
+app.use('/api/registrations', crud('registrations', { write: ['Admin','Accountant'] }));
+app.use('/api/materialcharges', crud('materialcharges', { write: ['Admin','Accountant'] }));
 
 app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Minhas Academy ERP API is running (Postgres edition).' });
