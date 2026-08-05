@@ -32,11 +32,11 @@ const pool = new Pool({
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '15mb' })); // raised from Express's 100kb default so photo uploads (base64) don't get rejected
 
 /* ---------------- helpers ---------------- */
 function sign(user){
-  return jwt.sign({ id: user.id, schoolId: user.schoolId, role: user.role, name: user.name, linkedStudentId: user.linkedStudentId || null }, JWT_SECRET, { expiresIn: '30d' });
+  return jwt.sign({ id: user.id, schoolId: user.schoolId, role: user.role, name: user.name, linkedStudentId: user.linkedStudentId || null, assignedClass: user.assignedClass || null }, JWT_SECRET, { expiresIn: '30d' });
 }
 function auth(req, res, next){
   const header = req.headers.authorization || '';
@@ -59,7 +59,7 @@ function mapSchool(row){
   if(!row) return null;
   return {
     id: row.id, name: row.name, tagline: row.tagline,
-    primaryColor: row.primary_color, goldColor: row.gold_color, logoLetter: row.logo_letter,
+    primaryColor: row.primary_color, goldColor: row.gold_color, logoLetter: row.logo_letter, logoImage: row.logo_image,
     contact: row.contact, address: row.address
   };
 }
@@ -114,14 +114,14 @@ app.post('/api/auth/signup', async (req, res) => {
 
 // Admin creates additional staff/parent/teacher logins for their own school
 app.post('/api/auth/create-user', auth, requireRole('Admin'), async (req, res) => {
-  const { name, username, password, role, linkedStudentId } = req.body || {};
+  const { name, username, password, role, linkedStudentId, assignedClass } = req.body || {};
   if(!name || !username || !password || !role) return res.status(400).json({ error: 'name, username, password, role required' });
   try{
     const existing = await pool.query('SELECT id FROM users WHERE username=$1', [username]);
     if(existing.rows.length) return res.status(409).json({ error: 'Username already taken' });
     const result = await pool.query(
-      `INSERT INTO users (school_id, name, username, password_hash, role, linked_student_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, name, role`,
-      [req.user.schoolId, name, username, bcrypt.hashSync(password, 10), role, linkedStudentId || null]
+      `INSERT INTO users (school_id, name, username, password_hash, role, linked_student_id, assigned_class) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, name, role`,
+      [req.user.schoolId, name, username, bcrypt.hashSync(password, 10), role, linkedStudentId || null, assignedClass || null]
     );
     res.json(result.rows[0]);
   }catch(e){
@@ -138,10 +138,10 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
     const schoolResult = await pool.query('SELECT * FROM schools WHERE id=$1', [user.school_id]);
-    const token = sign({ id: user.id, schoolId: user.school_id, role: user.role, name: user.name, linkedStudentId: user.linked_student_id });
+    const token = sign({ id: user.id, schoolId: user.school_id, role: user.role, name: user.name, linkedStudentId: user.linked_student_id, assignedClass: user.assigned_class });
     res.json({
       token,
-      user: { id: user.id, name: user.name, role: user.role, schoolId: user.school_id, linkedStudentId: user.linked_student_id },
+      user: { id: user.id, name: user.name, role: user.role, schoolId: user.school_id, linkedStudentId: user.linked_student_id, assignedClass: user.assigned_class },
       school: mapSchool(schoolResult.rows[0])
     });
   }catch(e){
@@ -167,15 +167,16 @@ app.get('/api/school', auth, async (req, res) => {
 });
 
 app.put('/api/school', auth, requireRole('Admin'), async (req, res) => {
-  const { name, tagline, primaryColor, goldColor, logoLetter, contact, address } = req.body || {};
+  const { name, tagline, primaryColor, goldColor, logoLetter, logoImage, contact, address } = req.body || {};
   try{
     const result = await pool.query(
       `UPDATE schools SET
         name = COALESCE($1, name), tagline = COALESCE($2, tagline),
         primary_color = COALESCE($3, primary_color), gold_color = COALESCE($4, gold_color),
-        logo_letter = COALESCE($5, logo_letter), contact = COALESCE($6, contact), address = COALESCE($7, address)
-       WHERE id=$8 RETURNING *`,
-      [name, tagline, primaryColor, goldColor, logoLetter, contact, address, req.user.schoolId]
+        logo_letter = COALESCE($5, logo_letter), logo_image = COALESCE($6, logo_image),
+        contact = COALESCE($7, contact), address = COALESCE($8, address)
+       WHERE id=$9 RETURNING *`,
+      [name, tagline, primaryColor, goldColor, logoLetter, logoImage, contact, address, req.user.schoolId]
     );
     res.json(mapSchool(result.rows[0]));
   }catch(e){ res.status(500).json({ error: e.message }); }
@@ -203,9 +204,10 @@ function crud(collectionName, allowedRoles = { write: null }){
   router.post('/', auth, async (req, res) => {
     if(allowedRoles.write && !allowedRoles.write.includes(req.user.role)) return res.status(403).json({ error: 'Not authorized' });
     try{
+      const dataWithOwner = { ...(req.body || {}), ownerId: req.user.id };
       const result = await pool.query(
         'INSERT INTO records (school_id, collection, data) VALUES ($1,$2,$3) RETURNING id, data',
-        [req.user.schoolId, collectionName, JSON.stringify(req.body || {})]
+        [req.user.schoolId, collectionName, JSON.stringify(dataWithOwner)]
       );
       res.json({ id: result.rows[0].id, ...result.rows[0].data });
     }catch(e){ res.status(500).json({ error: e.message }); }
@@ -238,12 +240,18 @@ app.use('/api/students', crud('students', {
   write: ['Admin','Teacher'],
   readFilter: (row, user) => user.role !== 'Parent' || String(row.id) === String(user.linkedStudentId)
 }));
-app.use('/api/staff', crud('staff', { write: ['Admin','Accountant'] }));
+app.use('/api/staff', crud('staff', {
+  write: ['Admin','Accountant'],
+  readFilter: (row, user) => user.role !== 'Parent'
+}));
 app.use('/api/fees', crud('fees', {
   write: ['Admin','Accountant'],
   readFilter: (row, user) => user.role !== 'Parent' || String(row.studentId) === String(user.linkedStudentId)
 }));
-app.use('/api/expenses', crud('expenses', { write: ['Admin','Accountant'] }));
+app.use('/api/expenses', crud('expenses', {
+  write: ['Admin','Accountant'],
+  readFilter: (row, user) => user.role !== 'Parent'
+}));
 app.use('/api/attendance', crud('attendance', {
   write: ['Admin','Teacher'],
   transform: (row, user) => {
@@ -257,13 +265,27 @@ app.use('/api/attendance', crud('attendance', {
 app.use('/api/homework', crud('homework', { write: ['Admin','Teacher'] }));
 app.use('/api/notices', crud('notices', { write: ['Admin','Teacher'] }));
 app.use('/api/events', crud('events', { write: ['Admin','Teacher'] }));
-app.use('/api/complaints', crud('complaints', { write: null }));
-app.use('/api/admissions', crud('admissions', { write: ['Admin'] }));
+app.use('/api/complaints', crud('complaints', {
+  write: null,
+  readFilter: (row, user) => user.role !== 'Parent' || row.ownerId === user.id
+}));
+app.use('/api/admissions', crud('admissions', {
+  write: ['Admin'],
+  readFilter: (row, user) => user.role !== 'Parent'
+}));
 app.use('/api/library', crud('library', { write: ['Admin','Teacher'] }));
 app.use('/api/transport', crud('transport', { write: ['Admin'] }));
 app.use('/api/exams', crud('exams', { write: ['Admin','Teacher'] }));
-app.use('/api/registrations', crud('registrations', { write: ['Admin','Accountant'] }));
-app.use('/api/materialcharges', crud('materialcharges', { write: ['Admin','Accountant'] }));
+app.use('/api/registrations', crud('registrations', {
+  write: ['Admin','Accountant'],
+  readFilter: (row, user) => user.role !== 'Parent' || String(row.studentId) === String(user.linkedStudentId)
+}));
+app.use('/api/materialcharges', crud('materialcharges', {
+  write: ['Admin','Accountant'],
+  readFilter: (row, user) => user.role !== 'Parent' || String(row.studentId) === String(user.linkedStudentId)
+}));
+app.use('/api/timetables', crud('timetables', { write: ['Admin','Teacher'] }));
+app.use('/api/paymentmethods', crud('paymentmethods', { write: ['Admin','Accountant'] }));
 
 app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Minhas Academy ERP API is running (Postgres edition).' });
