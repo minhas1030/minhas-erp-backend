@@ -1,4 +1,4 @@
-/**
+  /**
  * Minhas Academy ERP — Backend API (PostgreSQL / Supabase edition)
  *
  * Real multi-tenant auth + a REAL, PERMANENT database (Postgres via Supabase's
@@ -285,7 +285,6 @@ app.use('/api/materialcharges', crud('materialcharges', {
   readFilter: (row, user) => user.role !== 'Parent' || String(row.studentId) === String(user.linkedStudentId)
 }));
 app.use('/api/timetables', crud('timetables', { write: ['Admin','Teacher'] }));
-app.use('/api/paymentmethods', crud('paymentmethods', { write: ['Admin','Accountant'] }));
 
 app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Minhas Academy ERP API is running (Postgres edition).' });
