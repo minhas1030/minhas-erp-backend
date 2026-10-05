@@ -113,9 +113,25 @@ async function startLive(){
     const dc=pc.createDataChannel('oai-events');state.dc=dc;dc.onmessage=e=>{try{handleEvent(JSON.parse(e.data))}catch{}};dc.onerror=()=>toast('Live event channel error.');
     const offer=await pc.createOffer();await pc.setLocalDescription(offer);await waitIce(pc);
     const payload={sdp:pc.localDescription.sdp, mode:state.mode, roast:state.roast, voice:state.voice, name:state.name};
-    const r=await fetch('/api/session',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
-    const data=await r.json().catch(()=>({}));
-    if(!r.ok){if(r.status===503)els.setup.hidden=false;throw new Error(data.error||'Live session failed')}
+    let r=await fetch('/api/session',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
+    let data=await r.json().catch(()=>({}));
+    if(r.status===503){
+      try{
+        const hr=await fetch('/api/health',{cache:'no-store'});
+        const h=await hr.json();
+        if(h?.liveConfigured){
+          toast('Server just refreshed — retrying live brain…',2500);
+          await new Promise(x=>setTimeout(x,1200));
+          r=await fetch('/api/session',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
+          data=await r.json().catch(()=>({}));
+        }
+      }catch{}
+    }
+    if(!r.ok){
+      const detail = data?.error?.message || data?.error || data?.detail || `Live session failed (${r.status})`;
+      if(r.status===503 && /OPENAI_API_KEY/i.test(String(detail))) els.setup.hidden=false;
+      throw new Error(String(detail));
+    }
     await pc.setRemoteDescription({type:'answer',sdp:data.transport.sdp});
     setupLocalAnalyser(stream);
   }catch(e){console.error(e);cleanupLive(false);toast(e.message||'Mic/live connection failed.',7000)}
@@ -177,7 +193,12 @@ if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(
 
 async function init(){
   loadStats();els.daily.textContent=dailyChallenges[new Date().getDate()%dailyChallenges.length];
-  try{const r=await fetch('/api/health',{cache:'no-store'});const d=await r.json();if(!d.liveConfigured)$('#hintText').textContent='Demo ready. Add API key for real full-duplex live Yaar.'}catch{}
+  try{
+    const r=await fetch('/api/health',{cache:'no-store'});
+    const d=await r.json();
+    if(!d.liveConfigured) $('#hintText').textContent='Live brain is not connected on the server yet.';
+    else $('#hintText').textContent='Live brain connected ✅ Tap START LIVE and allow microphone.';
+  }catch{}
   if(!window.isSecureContext)$('#hintText').textContent='Downloaded HTML/content:// cannot use mic. Use START_BOLOYAAR.bat on desktop or deploy to HTTPS.';
 }
 init();
