@@ -5,7 +5,7 @@ const els = {
   caption: $('#captionText'), captionWho: $('#captionWho'), statusPill: $('#statusPill'), statusText: $('#statusText'),
   avatar: $('#yaarAvatar'), character: $('#characterWrap'), mouth: $('#mouthGroup'), teeth: $('#teeth'), smirk: $('#smirk'),
   text: $('#textInput'), send: $('#sendText'), toast: $('#toast'), settings: $('#settingsSheet'), backdrop: $('#sheetBackdrop'),
-  name: $('#nameInput'), voice: $('#voiceSelect'), setup: $('#setupModal'), remoteAudio: $('#remoteAudio'),
+  name: $('#nameInput'), voice: $('#voiceSelect'), remoteAudio: $('#remoteAudio'),
   xp: $('#xpNum'), xpBar: $('#xpBar'), fixes: $('#fixNum'), streak: $('#streakNum'), daily: $('#dailyChallenge'), install: $('#installBtn')
 };
 
@@ -129,7 +129,6 @@ async function startLive(){
     }
     if(!r.ok){
       const detail = data?.error?.message || data?.error || data?.detail || `Live session failed (${r.status})`;
-      if(r.status===503 && /OPENAI_API_KEY/i.test(String(detail))) els.setup.hidden=false;
       throw new Error(String(detail));
     }
     await pc.setRemoteDescription({type:'answer',sdp:data.transport.sdp});
@@ -163,7 +162,7 @@ async function sendText(){
     const data=await r.json();if(!r.ok)throw new Error(data.error||'Text AI unavailable');
     state.lastAI=data.text;setCaption('YAAR',data.text);avatarMode(/bro|oye|grammar|kela|💀|😂|😭/i.test(data.text)?'roast':'speaking');status('speaking','YAAR BOL RAHA HAI');speakFallback(data.text);const fix=detectLocalFix(text);if(fix)reward(5,true);
   }catch(e){
-    const fix=detectLocalFix(text);const roast=fallbackRoasts[Math.floor(Math.random()*fallbackRoasts.length)];const out=fix?`${roast} Say it like this: “${fix.natural}”`:`${roast} Meaning samajh aa gaya. Ab isay thora cleaner aur natural bolne ki practice karo.`;state.lastAI=out;setCaption('YAAR · DEMO',out);avatarMode('roast');speakFallback(out);if(fix)reward(5,true);if(/OPENAI_API_KEY/i.test(e.message))els.setup.hidden=false;
+    const fix=detectLocalFix(text);const roast=fallbackRoasts[Math.floor(Math.random()*fallbackRoasts.length)];const out=fix?`${roast} Say it like this: “${fix.natural}”`:`${roast} Meaning samajh aa gaya. Ab isay thora cleaner aur natural bolne ki practice karo.`;state.lastAI=out;setCaption('YAAR · DEMO',out);avatarMode('roast');speakFallback(out);if(fix)reward(5,true);if(/OPENAI_API_KEY/i.test(e.message))toast('Server API key is missing. This is a server configuration issue.',7000);
   }
 }
 function speakFallback(text){if(!('speechSynthesis'in window))return;const u=new SpeechSynthesisUtterance(text.replace(/[💀😂😭]/g,''));u.rate=1.05;u.pitch=.98;u.onstart=()=>avatarMode('speaking');u.onend=()=>{avatarMode('');status('','READY TO ROAST')};speechSynthesis.cancel();speechSynthesis.speak(u)}
@@ -186,10 +185,9 @@ els.share.addEventListener('click',shareMoment);$('#settingsBtn').addEventListen
 $$('.mode').forEach(b=>b.addEventListener('click',()=>{$$('.mode').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.mode=b.dataset.mode;updateLiveVibe();toast(`Mode: ${b.textContent.trim()}`)}));
 $$('.roast-choice').forEach(b=>b.addEventListener('click',()=>{$$('.roast-choice').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.roast=b.dataset.roast}));
 $('#applySettings').addEventListener('click',()=>{state.name=els.name.value.trim();state.voice=els.voice.value;updateLiveVibe();closeSettings();toast(`Vibe applied: ${state.roast.toUpperCase()} 💀`)});
-$('#closeSetup').addEventListener('click',()=>els.setup.hidden=true);
 
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();state.installPrompt=e;els.install.hidden=false});els.install.addEventListener('click',async()=>{if(state.installPrompt){state.installPrompt.prompt();await state.installPrompt.userChoice;state.installPrompt=null;els.install.hidden=true}});
-if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
+if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{});}
 
 async function init(){
   loadStats();els.daily.textContent=dailyChallenges[new Date().getDate()%dailyChallenges.length];
