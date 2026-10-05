@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0b0b13" />
+  <meta name="description" content="BoloYaar AI — the funny AI English friend that roasts your mistakes and teaches you how people actually speak." />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/styles.css" />
+  <title>BoloYaar AI — Speak. Get Roasted. Get Better.</title>
+</head>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <button class="brand" id="brandBtn" aria-label="BoloYaar home">
+      <span class="brandmark">BY</span><span><b>BoloYaar</b><small>AI speaking buddy</small></span>
+    </button>
+    <div class="top-actions">
+      <div class="streak" title="Daily streak"><span>🔥</span><b id="streakNum">1</b></div>
+      <button class="icon-btn" id="installBtn" hidden title="Install app">＋</button>
+      <button class="icon-btn" id="settingsBtn" title="Settings">•••</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="stage">
+      <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
+      <div class="status-pill" id="statusPill"><span class="status-dot"></span><span id="statusText">READY TO ROAST</span></div>
+      <div class="character-wrap" id="characterWrap">
+        <div class="orbit orbit-1"></div><div class="orbit orbit-2"></div>
+        <span class="reaction reaction-a" id="reactionA">💀</span><span class="reaction reaction-b" id="reactionB">😂</span>
+        <svg id="yaarAvatar" class="yaar-avatar" viewBox="0 0 420 500" role="img" aria-label="Yaar, your AI English buddy">
+          <defs>
+            <linearGradient id="hoodGrad" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#825cff"/><stop offset="1" stop-color="#3b2a9f"/></linearGradient>
+            <linearGradient id="skinGrad" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f0ad7b"/><stop offset=".55" stop-color="#ce805c"/><stop offset="1" stop-color="#aa5b49"/></linearGradient>
+            <filter id="shadow"><feDropShadow dx="0" dy="18" stdDeviation="18" flood-opacity=".45"/></filter>
+          </defs>
+          <g filter="url(#shadow)" id="bodyGroup">
+            <path d="M84 500c5-102 48-159 126-159s122 57 126 159H84z" fill="url(#hoodGrad)"/>
+            <path d="M128 432c6-63 34-94 82-94 48 0 76 31 82 94" fill="none" stroke="#5b44c9" stroke-width="38" stroke-linecap="round"/>
+            <rect x="180" y="304" width="60" height="62" rx="23" fill="#b86b51"/>
+          </g>
+          <g id="headGroup">
+            <ellipse cx="111" cy="232" rx="31" ry="47" fill="#c87a58"/><ellipse cx="309" cy="232" rx="31" ry="47" fill="#c87a58"/>
+            <path d="M91 215C91 101 139 54 210 54s119 47 119 161c0 104-45 149-119 149S91 319 91 215z" fill="url(#skinGrad)"/>
+            <path d="M92 181C95 82 145 43 213 43c75 0 119 43 119 139-24-33-61-49-112-49-55 0-96 18-128 48z" fill="#17141c"/>
+            <path d="M269 78c-5 38-27 64-66 75 47-2 84 10 111 36 0-54-12-92-45-111z" fill="#17141c"/>
+            <g class="brows"><path id="browL" d="M125 205c18-12 38-13 56-3"/><path id="browR" d="M239 202c18-10 37-9 55 4"/></g>
+            <g class="eyes">
+              <ellipse id="eyeL" cx="156" cy="226" rx="26" ry="22" fill="#fffaf5"/><ellipse id="eyeR" cx="264" cy="226" rx="26" ry="22" fill="#fffaf5"/>
+              <g id="pupilL"><circle cx="158" cy="228" r="10" fill="#21191b"/><circle cx="154" cy="224" r="3" fill="white"/></g>
+              <g id="pupilR"><circle cx="262" cy="228" r="10" fill="#21191b"/><circle cx="258" cy="224" r="3" fill="white"/></g>
+            </g>
+            <ellipse cx="136" cy="269" rx="25" ry="10" fill="#ff7390" opacity=".23"/><ellipse cx="284" cy="269" rx="25" ry="10" fill="#ff7390" opacity=".23"/>
+            <path d="M211 221c-6 20-10 38-7 49 4 9 12 13 23 9" fill="none" stroke="#965440" stroke-width="7" stroke-linecap="round"/>
+            <g id="mouthGroup" transform-origin="210px 308px">
+              <path id="mouthOuter" d="M155 300c35 25 75 25 110 0-8 38-28 53-55 53s-47-15-55-53z" fill="#6c2633"/>
+              <path id="teeth" d="M165 307c28 13 61 13 90 0-7 13-19 19-45 19s-38-6-45-19z" fill="#fff8ec" opacity=".98"/>
+              <ellipse id="tongue" cx="210" cy="338" rx="27" ry="10" fill="#ef7084"/>
+            </g>
+            <path id="smirk" d="M167 308c28 18 59 18 87 0" fill="none" stroke="#6c2633" stroke-width="9" stroke-linecap="round" opacity="0"/>
+          </g>
+          <g class="hands" id="handsGroup">
+            <ellipse id="handL" cx="96" cy="411" rx="30" ry="40" fill="#d58e68" transform="rotate(18 96 411)"/>
+            <ellipse id="handR" cx="324" cy="411" rx="30" ry="40" fill="#d58e68" transform="rotate(-18 324 411)"/>
+          </g>
+        </svg>
+      </div>
+
+      <div class="caption-card" id="captionCard">
+        <div class="caption-meta"><span id="captionWho">YAAR</span><span id="latencyTag">live</span></div>
+        <p id="captionText">Mic dabao aur kuch English bolo. Galti hui to dosti apni jagah… roast apni jagah.</p>
+        <div class="micro-fix" id="microFix" hidden><span>Better:</span> <b id="microFixText"></b></div>
+      </div>
+    </section>
+
+    <section class="control-zone">
+      <div class="mode-strip" id="modeStrip">
+        <button class="mode active" data-mode="freetalk">🗣️ Free Talk</button>
+        <button class="mode" data-mode="slang">😎 Slang Battle</button>
+        <button class="mode" data-mode="client">💼 Foreign Client</button>
+        <button class="mode" data-mode="interview">🎯 Interview</button>
+        <button class="mode" data-mode="rapid">⚡ Rapid Fire</button>
+        <button class="mode" data-mode="translate">🌐 Say it in English</button>
+      </div>
+
+      <div class="voice-row">
+        <button class="side-control" id="muteBtn" title="Mute microphone">🔊</button>
+        <button class="main-mic" id="mainMic" aria-label="Start live conversation"><span class="mic-icon">🎙️</span><span class="mic-label">START LIVE</span></button>
+        <button class="side-control" id="shareBtn" title="Share roast moment">↗</button>
+      </div>
+      <p class="hint" id="hintText">Speak naturally — interrupt Yaar anytime. HTTPS/localhost required for mic.</p>
+
+      <div class="composer">
+        <input id="textInput" autocomplete="off" placeholder="Mic nahi? Type karo… e.g. Yesterday I am go market" />
+        <button id="sendText">Send</button>
+      </div>
+
+      <div class="progress-card">
+        <div><small>TODAY</small><b><span id="xpNum">0</span> XP</b></div>
+        <div class="meter"><i id="xpBar"></i></div>
+        <div><small>FIXES</small><b id="fixNum">0</b></div>
+      </div>
+      <div class="daily-card"><span>🎲</span><div><small>DAILY CHAOS</small><b id="dailyChallenge">Convince Yaar that pineapple belongs on pizza — in English.</b></div></div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <div class="sheet-backdrop" id="sheetBackdrop" hidden></div>
+  <aside class="settings-sheet" id="settingsSheet" aria-hidden="true">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><div><small>PERSONALITY ENGINE</small><h2>How savage should Yaar be?</h2></div><button id="closeSettings">×</button></div>
+    <div class="roast-grid">
+      <button class="roast-choice" data-roast="chill"><b>😇 Chill</b><span>Mostly coach, occasional roast</span></button>
+      <button class="roast-choice" data-roast="desi"><b>🌶️ Desi</b><span>Pakistani banter + teaching</span></button>
+      <button class="roast-choice active" data-roast="savage"><b>💀 Savage</b><span>Roast most clear mistakes</span></button>
+      <button class="roast-choice" data-roast="nuclear"><b>☢️ Nuclear</b><span>Comedy-first, still not toxic</span></button>
+    </div>
+    <label class="field"><span>Your name (optional)</span><input id="nameInput" maxlength="40" placeholder="Awais" /></label>
+    <label class="field"><span>Voice</span><select id="voiceSelect"><option value="ash">Ash</option><option value="marin">Marin</option><option value="alloy">Alloy</option><option value="quartz">Quartz</option></select></label>
+    <div class="privacy"><b>🔒 Privacy note</b><p>API key stays on the server. Voice is streamed to the live AI session; do not put secret company/customer information into practice conversations.</p></div>
+    <button class="primary-sheet" id="applySettings">APPLY VIBE</button>
+  </aside>
+
+  <div class="setup-modal" id="setupModal" hidden>
+    <div class="setup-card">
+      <div class="setup-face">🎙️</div>
+      <h2>Live brain needs one setup</h2>
+      <p>The UI works immediately, but real non-repeating speech-to-speech requires an OpenAI API key on the server. The key never goes into your browser.</p>
+      <ol><li>Open <code>.env.local</code></li><li>Put <code>OPENAI_API_KEY=...</code></li><li>Restart <code>START_BOLOYAAR.bat</code></li></ol>
+      <button id="closeSetup">Use text/demo for now</button>
+    </div>
+  </div>
+
+  <audio id="remoteAudio" autoplay playsinline></audio>
+</div>
+<script src="/app.js" defer></script>
+</body>
+</html>
