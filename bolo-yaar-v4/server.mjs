@@ -167,6 +167,16 @@ async function createLiveSession(req, res) {
       body: JSON.stringify({ session, transport:{ type:'webrtc', sdp: body.sdp } })
     });
     const txt = await r.text();
+    if (!r.ok) {
+      let msg = txt;
+      try {
+        const parsed = JSON.parse(txt);
+        msg = parsed?.error?.message || parsed?.message || txt;
+      } catch {}
+      console.log(`[OpenAI Live] status=${r.status} error=${String(msg).slice(0, 500)}`);
+    } else {
+      console.log('[OpenAI Live] session created ✅');
+    }
     res.writeHead(r.status, { 'content-type': r.headers.get('content-type') || 'application/json', 'cache-control':'no-store' });
     res.end(txt);
   } catch (e) {
@@ -236,7 +246,28 @@ const server = http.createServer(async (req,res) => {
   res.writeHead(405); res.end('Method Not Allowed');
 });
 
+async function startupOpenAICheck() {
+  if (!OPENAI_API_KEY) return;
+  try {
+    const r = await fetch('https://api.openai.com/v1/models/gpt-live-1', {
+      headers: { authorization: `Bearer ${OPENAI_API_KEY}` }
+    });
+    let msg = '';
+    if (!r.ok) {
+      const txt = await r.text();
+      try {
+        const parsed = JSON.parse(txt);
+        msg = parsed?.error?.message || parsed?.message || txt;
+      } catch { msg = txt; }
+    }
+    console.log(r.ok ? '[OpenAI Check] gpt-live-1 access reachable ✅' : `[OpenAI Check] status=${r.status} ${String(msg).slice(0,300)}`);
+  } catch (e) {
+    console.log('[OpenAI Check] network check failed:', String(e?.message || e).slice(0,300));
+  }
+}
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`\nBoloYaar AI V4 running at http://localhost:${PORT}`);
   console.log(OPENAI_API_KEY ? 'Live AI: configured ✅\n' : 'Live AI: NOT configured — add OPENAI_API_KEY to .env.local ⚠️\n');
+  startupOpenAICheck();
 });
