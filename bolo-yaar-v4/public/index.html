@@ -7,7 +7,7 @@
   <meta name="description" content="BoloYaar AI — the funny AI English friend that roasts your mistakes and teaches you how people actually speak." />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/styles.css?v=5" />
   <title>BoloYaar AI — Speak. Get Roasted. Get Better.</title>
 </head>
 <body>
@@ -123,19 +123,8 @@
     <div class="privacy"><b>🔒 Privacy note</b><p>API key stays on the server. Voice is streamed to the live AI session; do not put secret company/customer information into practice conversations.</p></div>
     <button class="primary-sheet" id="applySettings">APPLY VIBE</button>
   </aside>
-
-  <div class="setup-modal" id="setupModal" hidden>
-    <div class="setup-card">
-      <div class="setup-face">🎙️</div>
-      <h2>Live brain needs one setup</h2>
-      <p>The UI works immediately, but real non-repeating speech-to-speech requires an OpenAI API key on the server. The key never goes into your browser.</p>
-      <ol><li>Open <code>.env.local</code></li><li>Put <code>OPENAI_API_KEY=...</code></li><li>Restart <code>START_BOLOYAAR.bat</code></li></ol>
-      <button id="closeSetup">Use text/demo for now</button>
-    </div>
-  </div>
-
   <audio id="remoteAudio" autoplay playsinline></audio>
 </div>
-<script src="/app.js" defer></script>
+<script src="/app.js?v=5" defer></script>
 </body>
 </html>
