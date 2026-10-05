@@ -147,18 +147,7 @@ async function createLiveSession(req, res) {
   const session = {
     model: 'gpt-live-1',
     instructions: buildInstructions({ mode, roast, name: body.name }),
-    audio: {
-      input: {
-        transcription: {
-          model: 'gpt-live-transcribe',
-          delay: 'low',
-          prompt: 'A South Asian learner practicing English. Speech may code-switch between English, Urdu, Roman Urdu and Punjabi-flavoured English. Preserve wording faithfully for captions.'
-        }
-      },
-      output: { voice }
-    },
-    delegation: { type: 'client' },
-    client: { data_channel: { allowed_client_events: 'all', allowed_server_events: 'all' } }
+    audio: { output: { voice } }
   };
   try {
     const r = await fetch('https://api.openai.com/v1/live/sessions', {
